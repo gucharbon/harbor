@@ -82,7 +82,7 @@ After the project is created, you can browse repositories, members, logs, replic
 
 ![browse project](img/new_browse_project.png)
 
-There are two views to show repositories, listview and card view, you can switch between them by clicking the corresponding icon.
+There are two views to show repositories, list view and card view, you can switch between them by clicking the corresponding icon.
 
 ![browse repositories](img/browse_project_repositories.png)
 
@@ -242,7 +242,7 @@ $ docker push 10.117.169.182/demo/ubuntu:14.04
 The push refers to a repository [10.117.169.182/demo/ubuntu]
 0271b8eebde3: Preparing 
 denied: The system is in read only mode. Any modification is prohibited.  
-``` 
+```
 ### Managing role by LDAP group
 
 If auth_mode is ldap_auth, you can manage project role by LDAP/AD group. please refer [manage role by ldap group guide](manage_role_by_ldap_group.md).
@@ -252,14 +252,13 @@ If auth_mode is ldap_auth, you can manage project role by LDAP/AD group. please 
 **NOTE: Harbor only supports Registry V2 API. You need to use Docker client 1.6.0 or higher.**  
 
 Harbor supports HTTP by default and Docker client tries to connect to Harbor using HTTPS first, so if you encounter an error as below when you pull or push images, you need to configure insecure registry. Please, read [this document](https://docs.docker.com/registry/insecure/) in order to understand how to do this. 
-  
+
 
 ```Error response from daemon: Get https://myregistrydomain.com/v1/users/: dial tcp myregistrydomain.com:443 getsockopt: connection refused.```   
-  
 
 If this private registry supports only HTTP or HTTPS with an unknown CA certificate, please add   
 `--insecure-registry myregistrydomain.com` to the daemon's start up arguments.  
-  
+
 
 In the case of HTTPS, if you have access to the registry's CA certificate, simply place the CA certificate at /etc/docker/certs.d/myregistrydomain.com/ca.crt .   
 
@@ -269,7 +268,7 @@ If the project that the image belongs to is private, you should sign in first:
 ```sh
 $ docker login 10.117.169.182  
 ```
-  
+
 You can now pull the image:  
 
 ```sh
@@ -286,18 +285,18 @@ First, log in from Docker client:
 ```sh
 $ docker login 10.117.169.182  
 ```
-  
+
 Tag the image:  
 
 ```sh
 $ docker tag ubuntu:14.04 10.117.169.182/demo/ubuntu:14.04  
-``` 
+```
 
 Push the image:
 
 ```sh
 $ docker push 10.117.169.182/demo/ubuntu:14.04  
-```  
+```
 
 **Note: Replace "10.117.169.182" with the IP address or domain name of your Harbor node.**
 
@@ -309,6 +308,11 @@ Go into the repository and select the "Info" tab, and click the "EDIT" button.  
 
 ![edit info](img/edit_description.png)
 
+### Download the harbor certs
+
+Users  can click the "registry certificate" link to download the registry certificate.
+
+![browse project](img/download_harbor_certs.png)
 
 ###  Deleting repositories  
 
@@ -331,7 +335,7 @@ $ docker-compose stop
 
 $ docker run -it --name gc --rm --volumes-from registry goharbor/registry:2.6.2-photon garbage-collect --dry-run /etc/registry/config.yml
 
-```  
+```
 **NOTE:** The above option "--dry-run" will print the progress without removing any data.  
 
 Verify the result of the above test, then use the below commands to perform garbage collection and restart Harbor. 
@@ -341,7 +345,7 @@ Verify the result of the above test, then use the below commands to perform garb
 $ docker run -it --name gc --rm --volumes-from registry goharbor/registry:2.6.2-photon garbage-collect  /etc/registry/config.yml
 
 $ docker-compose start
-```  
+```
 
 For more information about GC, please see [GC](https://github.com/docker/docker.github.io/blob/master/registry/garbage-collection.md).  
 
@@ -357,7 +361,7 @@ The root key is generated at: ``/root/.docker/trust/private/root_keys``
 You will also be asked to enter a new passphrase for the image. This is generated at ``/root/.docker/trust/private/tuf_keys/[registry name] /[imagepath]``.  
 If you are using a self-signed cert, make sure to copy the CA cert into ```/etc/docker/certs.d/10.117.169.182``` and ```$HOME/.docker/tls/10.117.169.182:4443/```. When an image is signed, it is indicated in the Web UI.  
 **Note: Replace "10.117.169.182" with the IP address or domain name of your Harbor node. In order to use content trust, HTTPS must be enabled in Harbor.**  
-  
+
 
 When an image is signed, it has a tick shown in UI; otherwise, a cross sign(X) is displayed instead.  
 ![browse project](img/content_trust.png)
@@ -437,7 +441,7 @@ Kubernetes users can easily deploy pods with images stored in Harbor.  The setti
 2. If your pod references an image under private project, you need to create a secret with the credentials of user who has permission to pull image from this project, for details refer to: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 
 ## Manage Helm Charts
-Helm charts is a good way to package, share and use software built for Kubernetes. From version 1.6.0, Harbor is upgraded to be a composite cloud-native registry, which supports both image management and helm charts management. The charts are also isolated by projects and controlled by RBAC access control system.
+[Helm](https://helm.sh) is a package manager for [Kubernetes](https://kubernetes.io). Helm uses a packaging format called [charts](https://docs.helm.sh/developing_charts). Since version 1.6.0 Harbor is now a composite cloud-native registry which supports both container image management and Helm charts management. Access to Helm charts in Harbor is controlled by [role-based access controls (RBAC)](https://en.wikipedia.org/wiki/Role-based_access_control) and is restricted by projects.
 
 ### Manage Helm Charts via portal
 #### List charts
@@ -505,7 +509,7 @@ helm version
 Before working, Harbor should be added into the repository list with `helm repo add` command. Two different modes are supported.
 * Add Harbor as a unified single index entry point
 
-With this mode, helm can aware all the charts located in the different projects which are accessable by the current authenticated user.
+With this mode Helm can be made aware of all the charts located in different projects and which are accessible by the currently authenticated user.
 ```
 helm repo add --ca-file ca.crt --cert-file server.crt --key-file server.key --username=admin --password=Passw0rd myrepo https://xx.xx.xx.xx/chartrepo
 ```

@@ -1,4 +1,4 @@
-// Copyright (c) 2017 VMware, Inc. All Rights Reserved.
+// Copyright 2018 Project Harbor Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ import (
 	"github.com/goharbor/harbor/src/common"
 	"github.com/goharbor/harbor/src/common/dao"
 	"github.com/goharbor/harbor/src/common/models"
-	"github.com/goharbor/harbor/src/common/notifier"
 	"github.com/goharbor/harbor/src/common/utils"
 	"github.com/goharbor/harbor/src/common/utils/clair"
 	registry_error "github.com/goharbor/harbor/src/common/utils/error"
@@ -37,6 +36,7 @@ import (
 	"github.com/goharbor/harbor/src/common/utils/notary"
 	"github.com/goharbor/harbor/src/common/utils/registry"
 	"github.com/goharbor/harbor/src/core/config"
+	"github.com/goharbor/harbor/src/core/notifier"
 	coreutils "github.com/goharbor/harbor/src/core/utils"
 	"github.com/goharbor/harbor/src/replication/event/notification"
 	"github.com/goharbor/harbor/src/replication/event/topic"
@@ -422,6 +422,82 @@ func (ra *RepositoryAPI) GetTag() {
 		ra.SecurityCtx.GetUsername())
 	ra.Data["json"] = result[0]
 	ra.ServeJSON()
+}
+
+// Retag tags an existing image to another tag in this repo, the source image is specified by request body.
+func (ra *RepositoryAPI) Retag() {
+	if !ra.SecurityCtx.IsAuthenticated() {
+		ra.HandleUnauthorized()
+		return
+	}
+
+	repoName := ra.GetString(":splat")
+	request := models.RetagRequest{}
+	ra.DecodeJSONReq(&request)
+	srcImage, err := models.ParseImage(request.SrcImage)
+	if err != nil {
+		ra.HandleBadRequest(fmt.Sprintf("invalid src image string '%s', should in format '<project>/<repo>:<tag>'", request.SrcImage))
+		return
+	}
+
+	// Check whether source image exists
+	exist, _, err := ra.checkExistence(fmt.Sprintf("%s/%s", srcImage.Project, srcImage.Repo), srcImage.Tag)
+	if err != nil {
+		ra.HandleInternalServerError(fmt.Sprintf("check existence of %s error: %v", request.SrcImage, err))
+		return
+	}
+	if !exist {
+		ra.HandleNotFound(fmt.Sprintf("image %s not exist", request.SrcImage))
+		return
+	}
+
+	// Check whether target project exists
+	project, repo := utils.ParseRepository(repoName)
+	exist, err = ra.ProjectMgr.Exists(project)
+	if err != nil {
+		ra.ParseAndHandleError(fmt.Sprintf("failed to check the existence of project %s", project), err)
+		return
+	}
+	if !exist {
+		ra.HandleNotFound(fmt.Sprintf("project %s not found", project))
+		return
+	}
+
+	// If override not allowed, check whether target tag already exists
+	if !request.Override {
+		exist, _, err := ra.checkExistence(repoName, request.Tag)
+		if err != nil {
+			ra.HandleInternalServerError(fmt.Sprintf("check existence of %s:%s error: %v", repoName, request.Tag, err))
+			return
+		}
+		if exist {
+			ra.HandleConflict(fmt.Sprintf("tag '%s' already existed for '%s'", request.Tag, repoName))
+			return
+		}
+	}
+
+	// Check whether use has read permission to source project
+	if !ra.SecurityCtx.HasReadPerm(srcImage.Project) {
+		log.Errorf("user has no read permission to project '%s'", srcImage.Project)
+		ra.HandleUnauthorized()
+		return
+	}
+
+	// Check whether user has write permission to target project
+	if !ra.SecurityCtx.HasWritePerm(project) {
+		log.Errorf("user has no write permission to project '%s'", project)
+		ra.HandleUnauthorized()
+		return
+	}
+
+	// Retag the image
+	if err = coreutils.Retag(srcImage, &models.Image{
+		Project: project,
+		Repo:    repo,
+		Tag:     request.Tag,
+	}); err != nil {
+		ra.HandleInternalServerError(fmt.Sprintf("%v", err))
+	}
 }
 
 // GetTags returns tags of a repository
@@ -932,40 +1008,22 @@ func (ra *RepositoryAPI) ScanAll() {
 		ra.HandleUnauthorized()
 		return
 	}
-	projectIDStr := ra.GetString("project_id")
-	if len(projectIDStr) > 0 { // scan images under the project only.
-		pid, err := strconv.ParseInt(projectIDStr, 10, 64)
-		if err != nil || pid <= 0 {
-			ra.HandleBadRequest(fmt.Sprintf("Invalid project_id %s", projectIDStr))
-			return
-		}
-		if !ra.SecurityCtx.HasAllPerm(pid) {
-			ra.HandleForbidden(ra.SecurityCtx.GetUsername())
-			return
-		}
-		if err := coreutils.ScanImagesByProjectID(pid); err != nil {
-			log.Errorf("Failed triggering scan images in project: %d, error: %v", pid, err)
-			ra.HandleInternalServerError(fmt.Sprintf("Error: %v", err))
-			return
-		}
-	} else { // scan all images in Harbor
-		if !ra.SecurityCtx.IsSysAdmin() {
-			ra.HandleForbidden(ra.SecurityCtx.GetUsername())
-			return
-		}
-		if !utils.ScanAllMarker().Check() {
-			log.Warningf("There is a scan all scheduled at: %v, the request will not be processed.", utils.ScanAllMarker().Next())
-			ra.RenderError(http.StatusPreconditionFailed, "Unable handle frequent scan all requests")
-			return
-		}
-
-		if err := coreutils.ScanAllImages(); err != nil {
-			log.Errorf("Failed triggering scan all images, error: %v", err)
-			ra.HandleInternalServerError(fmt.Sprintf("Error: %v", err))
-			return
-		}
-		utils.ScanAllMarker().Mark()
+	if !ra.SecurityCtx.IsSysAdmin() {
+		ra.HandleForbidden(ra.SecurityCtx.GetUsername())
+		return
 	}
+	if !utils.ScanAllMarker().Check() {
+		log.Warningf("There is a scan all scheduled at: %v, the request will not be processed.", utils.ScanAllMarker().Next())
+		ra.RenderError(http.StatusPreconditionFailed, "Unable handle frequent scan all requests")
+		return
+	}
+
+	if err := coreutils.ScanAllImages(); err != nil {
+		log.Errorf("Failed triggering scan all images, error: %v", err)
+		ra.HandleInternalServerError(fmt.Sprintf("Error: %v", err))
+		return
+	}
+	utils.ScanAllMarker().Mark()
 	ra.Ctx.ResponseWriter.WriteHeader(http.StatusAccepted)
 }
 

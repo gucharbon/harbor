@@ -1,4 +1,4 @@
-// Copyright (c) 2017 VMware, Inc. All Rights Reserved.
+// Copyright 2018 Project Harbor Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import (
 	"github.com/goharbor/harbor/src/common/dao"
 	clairdao "github.com/goharbor/harbor/src/common/dao/clair"
 	"github.com/goharbor/harbor/src/common/models"
-	"github.com/goharbor/harbor/src/common/notifier"
 	"github.com/goharbor/harbor/src/common/utils"
 	"github.com/goharbor/harbor/src/common/utils/log"
 	"github.com/goharbor/harbor/src/core/api"
 	"github.com/goharbor/harbor/src/core/config"
+	"github.com/goharbor/harbor/src/core/notifier"
 	coreutils "github.com/goharbor/harbor/src/core/utils"
 	rep_notification "github.com/goharbor/harbor/src/replication/event/notification"
 	"github.com/goharbor/harbor/src/replication/event/topic"
@@ -158,23 +158,27 @@ func filterEvents(notification *models.Notification) ([]*models.Event, error) {
 			continue
 		}
 
-		// pull and push manifest by docker-client or vic
-		if (strings.HasPrefix(event.Request.UserAgent, "docker") || strings.HasPrefix(event.Request.UserAgent, vicPrefix)) &&
-			(event.Action == "pull" || event.Action == "push") {
+		if checkEvent(&event) {
 			events = append(events, &event)
-			log.Debugf("add event to collect: %s", event.ID)
-			continue
-		}
-
-		// push manifest by docker-client or job-service
-		if strings.ToLower(strings.TrimSpace(event.Request.UserAgent)) == "harbor-registry-client" && event.Action == "push" {
-			events = append(events, &event)
-			log.Debugf("add event to collect: %s", event.ID)
+			log.Debugf("add event to collection: %s", event.ID)
 			continue
 		}
 	}
 
 	return events, nil
+}
+
+func checkEvent(event *models.Event) bool {
+	// pull and push manifest by docker-client or vic or jib
+	if (strings.HasPrefix(event.Request.UserAgent, "docker") || strings.HasPrefix(event.Request.UserAgent, vicPrefix) || strings.HasPrefix(event.Request.UserAgent, "jib")) &&
+		(event.Action == "pull" || event.Action == "push") {
+		return true
+	}
+	// push manifest by docker-client or job-service
+	if strings.ToLower(strings.TrimSpace(event.Request.UserAgent)) == "harbor-registry-client" && event.Action == "push" {
+		return true
+	}
+	return false
 }
 
 func autoScanEnabled(project *models.Project) bool {

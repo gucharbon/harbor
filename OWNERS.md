@@ -1,7 +1,9 @@
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for general contribution guidelines.
-[GOVERNANCE.md](GOVERNANCE.md) describes governance guidelines and maintainer responsibilities.
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for general contribution
+guidelines.
+[GOVERNANCE.md](https://github.com/goharbor/community/blob/master/GOVERNANCE.md)
+describes governance guidelines and maintainer responsibilities.
 
-# Maintainers
+# Core Maintainers
 
 * Daniel Jiang ([reasonerjt](https://github.com/reasonerjt))
 * Steven Ren ([renmaosheng](https://github.com/renmaosheng))
@@ -12,3 +14,7 @@ Please see [CONTRIBUTING.md](CONTRIBUTING.md) for general contribution guideline
 * Mia Zhou ([zhoumeina](https://github.com/zhoumeina))
 * James Zabala ([clouderati](https://github.com/clouderati))
 * Steven Zou ([steven-zou](https://github.com/steven-zou))
+
+# Maintainers
+* Nathan Lowe ([nlowe](https://github.com/nlowe))
+* De Chen ([cd1989](https://github.com/cd1989))

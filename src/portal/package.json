@@ -15,7 +15,8 @@
         "build_lib": "ng build --prod lib",
         "npm_pack": "cd lib/dist && npm pack",
         "package": "npm run build_lib && npm run npm_pack",
-        "link_lib": "cd lib/dist && npm link && cd ../../ && npm link @harbor/ui"
+        "link_lib": "cd lib/dist && npm link && cd ../../ && npm link @harbor/ui",
+        "build_all": "npm run build_lib && npm run link_lib && npm run build"
     },
     "private": true,
     "dependencies": {
@@ -59,7 +60,6 @@
         "@types/jasmine": "~2.8.6",
         "@types/jasminewd2": "~2.0.3",
         "@types/node": "~8.9.4",
-        "bootstrap": "4.0.0-alpha.5",
         "codelyzer": "~4.2.1",
         "enhanced-resolve": "^3.0.0",
         "jasmine-core": "~2.99.1",
